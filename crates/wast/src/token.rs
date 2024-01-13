@@ -2,8 +2,8 @@
 //! associated specifically with the wasm text format per se (useful in other
 //! contexts too perhaps).
 
-use crate::annotation;
-use crate::lexer::Float;
+use crate::{annotation, Error};
+use crate::lexer::{Float, Lexer, TokenKind};
 use crate::parser::{Cursor, Parse, Parser, Peek, Result};
 use std::fmt;
 use std::hash::{Hash, Hasher};
@@ -58,7 +58,20 @@ pub struct Id<'a> {
 }
 
 impl<'a> Id<'a> {
-    fn new(name: &'a str, span: Span) -> Id<'a> {
+    /// Construct a new identifier from given string.
+    ///
+    /// Returns an error if the string does not contain a leading `$`, or is not a
+    /// valid WASM text format identifier.
+    pub fn new(name: &'a str, span: Span) -> Result<Id<'a>> {
+        let mut _pos: usize = 0;
+        let tok = Lexer::new(name).parse(&mut _pos)?;
+        match tok {
+            Some(tok) if tok.kind == TokenKind::Id => Ok(Id { name: tok.id(name), gen: 0, span }),
+            _ => Err(Error::parse(span, name, "expected an identifier".into()))
+        }
+    }
+
+    fn new_unchecked(name: &'a str, span: Span) -> Id<'a> {
         Id { name, gen: 0, span }
     }
 
@@ -106,7 +119,7 @@ impl<'a> Parse<'a> for Id<'a> {
     fn parse(parser: Parser<'a>) -> Result<Self> {
         parser.step(|c| {
             if let Some((name, rest)) = c.id()? {
-                return Ok((Id::new(name, c.cur_span()), rest));
+                return Ok((Id::new_unchecked(name, c.cur_span()), rest));
             }
             Err(c.error("expected an identifier"))
         })
