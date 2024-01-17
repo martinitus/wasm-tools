@@ -1,4 +1,5 @@
 use wast::parser::{self, Parse, ParseBuffer, Parser, Result};
+use wast::Wat;
 
 pub struct Comments<'a> {
     comments: Vec<&'a str>,
@@ -39,11 +40,38 @@ impl<'a, T: Parse<'a>> Parse<'a> for Documented<'a, T> {
     }
 }
 
+
+#[test]
+fn foo()  {
+    let buf = ParseBuffer::new(
+        r#"
+        ( module $foo
+            (
+                func $sum (param i32) (param i32) (result i32)
+                    local.get 0
+                    local.get 1
+                    i32.add
+            )
+
+            (
+                func (export "sum2") (param i32) (param i32) (result i32)
+                    call $sum (local.get 1) (local.get 1)
+            )
+        )
+        "#,
+    ).unwrap();
+
+    let mut d: Wat = parser::parse(&buf).unwrap();
+    d.encode().unwrap();
+    println!("{:?}", d);
+}
+
+
 #[test]
 fn parse_comments() -> anyhow::Result<()> {
     let buf = ParseBuffer::new(
         r#"
-;; hello
+;; hellop
 (; again ;)
 (module)
     "#,
